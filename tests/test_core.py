@@ -1,7 +1,17 @@
 """Your tests. Each milestone in README.md gets one here: write the test first, then make it pass."""
 import pytest
 
-from app.core import clean_text, get_vocabulary, load_corpus, milestone_1, preprocess_corpus, tokenize
+from app.core import (
+    NGramLanguageModel,
+    build_educational_model,
+    clean_text,
+    get_vocabulary,
+    load_corpus,
+    milestone_1,
+    milestone_2,
+    preprocess_corpus,
+    tokenize,
+)
 
 
 # Milestone 1: Gather a corpus of educational texts relevant to a subject.
@@ -30,9 +40,47 @@ def test_milestone_1():
 
 
 # Milestone 2: Build the n-gram model, including add-k smoothing.
-@pytest.mark.skip(reason="remove this line when you start milestone 2")
 def test_milestone_2():
-    raise NotImplementedError("write the test for milestone 2")
+    result = milestone_2()
+    assert result["status"] == "completed"
+    assert result["n"] == 3
+    assert result["k"] == 1.0
+    assert result["vocab_size"] > 100
+    assert len(result["top_predictions"]) > 0
+    # Probabilities must sum to 1.0 over the vocabulary
+    assert abs(result["probability_sum"] - 1.0) < 1e-5
+
+    # Test NGramLanguageModel unit mechanics
+    mini_corpus = [
+        ["the", "cell", "is", "the", "basic", "unit", "."],
+        ["the", "cell", "divides", "by", "mitosis", "."],
+    ]
+    model = NGramLanguageModel(n=2, k=1.0)
+    model.fit(mini_corpus)
+
+    # Check context counts
+    assert model.context_counts[("cell",)] == 2
+    assert model.ngram_counts[("cell",)]["is"] == 1
+    assert model.ngram_counts[("cell",)]["divides"] == 1
+
+    # Check Add-k smoothing
+    # vocab: "the", "cell", "is", "basic", "unit", ".", "divides", "by", "mitosis", "</s>" -> 10 words
+    v_size = model.vocab_size
+    # P("is" | "cell") = (count("cell", "is") + 1) / (count("cell") + 1 * v_size) = (1 + 1) / (2 + 10) = 2/12 = 1/6
+    prob_is = model.probability("is", ("cell",), k=1.0)
+    assert abs(prob_is - (2.0 / (2.0 + v_size))) < 1e-5
+
+    # Check that unseen words in context still get positive probability due to smoothing
+    prob_unseen = model.probability("mitosis", ("basic",), k=1.0)
+    assert prob_unseen > 0.0
+
+    # Probability distribution sums to 1.0
+    probs = model.get_next_word_probabilities(("cell",))
+    assert abs(sum(probs.values()) - 1.0) < 1e-5
+
+    # Check k=0.5 (Lidstone smoothing)
+    prob_lidstone = model.probability("is", ("cell",), k=0.5)
+    assert abs(prob_lidstone - (1.5 / (2.0 + 0.5 * v_size))) < 1e-5
 
 
 # Milestone 3: Implement text generation to expand short inputs.
