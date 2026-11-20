@@ -298,7 +298,7 @@ def expand_text(
             if avoid_repetition and len(generated) >= 1 and word == generated[-1]:
                 continue
             if avoid_repetition and len(generated) >= 3 and word in generated[-3:]:
-                # skip immediate cycle
+                # skip immediate loop
                 continue
             next_word = word
             break
@@ -358,6 +358,27 @@ def milestone_3() -> dict[str, Any]:
     }
 
 
-# --- Milestone 4: Develop a simple CLI for text input and expansion output.
-def milestone_4():  # TODO(milestone 4)
-    raise NotImplementedError("TODO(milestone 4)")
+# ============================================================================
+# Milestone 4: Develop a Simple CLI for Text Input and Expansion Output
+# ============================================================================
+
+def milestone_4(prompt: str = "Photosynthesis is", max_words: int = 15) -> dict[str, Any]:
+    """Milestone 4: Develop a simple CLI for text input and expansion output.
+
+    Utilizes Python's argparse module or basic input() and print() functions.
+    """
+    from app.cli import build_parser
+
+    parser = build_parser()
+    model = build_educational_model(n=3, k=1.0)
+    expanded = expand_text(model, prompt, max_new_words=max_words)
+    suggestions = suggest_next_words(model, prompt, top_k=3)
+
+    return {
+        "status": "completed",
+        "cli_parser": parser,
+        "prompt": prompt,
+        "expanded_sentence": expanded,
+        "suggestions": suggestions,
+        "cli_usage_example": f"python -m app.cli expand '{prompt}'",
+    }

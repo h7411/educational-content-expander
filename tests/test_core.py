@@ -1,6 +1,9 @@
 """Your tests. Each milestone in README.md gets one here: write the test first, then make it pass."""
+from pathlib import Path
+
 import pytest
 
+from app.cli import main
 from app.core import (
     NGramLanguageModel,
     build_educational_model,
@@ -12,6 +15,7 @@ from app.core import (
     milestone_1,
     milestone_2,
     milestone_3,
+    milestone_4,
     preprocess_corpus,
     suggest_next_words,
     tokenize,
@@ -114,6 +118,34 @@ def test_milestone_3():
 
 
 # Milestone 4: Develop a simple CLI for text input and expansion output.
-@pytest.mark.skip(reason="remove this line when you start milestone 4")
-def test_milestone_4():
-    raise NotImplementedError("write the test for milestone 4")
+def test_milestone_4(capsys):
+    result = milestone_4(prompt="Photosynthesis is")
+    assert result["status"] == "completed"
+    assert "Photosynthesis is" in result["expanded_sentence"]
+    assert "python -m app.cli expand" in result["cli_usage_example"]
+
+    # Test CLI execution via main()
+    main(["expand", "An algorithm is", "-m", "10"])
+    captured = capsys.readouterr()
+    assert "Expanded: An algorithm is" in captured.out
+
+    # Test CLI with --suggest flag
+    main(["expand", "Gravity pulls", "-s"])
+    captured_suggest = capsys.readouterr()
+    assert "Next-word suggestions:" in captured_suggest.out
+
+    # Test batch file input and output (stretch feature)
+    input_file = Path("data/test_input.txt")
+    output_file = Path("data/test_output.txt")
+    input_file.parent.mkdir(parents=True, exist_ok=True)
+    input_file.write_text("Cells divide by\nGravity pulls\n")
+
+    main(["expand", "-i", str(input_file), "-o", str(output_file)])
+    assert output_file.exists()
+    content = output_file.read_text()
+    assert "Cells divide by" in content
+    assert "Gravity pulls" in content
+
+    # Clean up test files
+    input_file.unlink(missing_ok=True)
+    output_file.unlink(missing_ok=True)
