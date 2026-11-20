@@ -243,9 +243,119 @@ def milestone_2() -> dict[str, Any]:
     }
 
 
-# --- Milestone 3: Implement text generation to expand short inputs.
-def milestone_3():  # TODO(milestone 3)
-    raise NotImplementedError("TODO(milestone 3)")
+# ============================================================================
+# Milestone 3: Text Generation to Expand Short Inputs
+# ============================================================================
+
+def format_tokens_to_sentence(tokens: list[str]) -> str:
+    """Reconstruct a well-formatted sentence from a list of tokens."""
+    if not tokens:
+        return ""
+
+    out_parts: list[str] = []
+    punctuation_marks = {".", "!", "?", ",", ";", ":"}
+
+    for i, token in enumerate(tokens):
+        if token in {START_TOKEN, END_TOKEN}:
+            continue
+        if i == 0 or not out_parts:
+            out_parts.append(token.capitalize())
+        elif token in punctuation_marks:
+            out_parts[-1] += token
+        else:
+            out_parts.append(token)
+
+    sentence = " ".join(out_parts)
+    # Ensure terminal punctuation
+    if sentence and sentence[-1] not in punctuation_marks:
+        sentence += "."
+    return sentence
+
+
+def expand_text(
+    model: NGramLanguageModel,
+    prompt: str,
+    max_new_words: int = 15,
+    stop_at_punct: bool = True,
+    k_smoothing: float | None = None,
+    avoid_repetition: bool = True,
+) -> str:
+    """Expand a short prompt or bullet point into a complete sentence using the n-gram model."""
+    prompt_tokens = tokenize(prompt, lowercase=True, preserve_punctuation=False)
+    if not prompt_tokens:
+        return ""
+
+    generated = list(prompt_tokens)
+
+    for _ in range(max_new_words):
+        context = tuple(generated[-(model.n - 1) :])
+        candidates = model.predict_next_words(context, top_k=15, k=k_smoothing)
+
+        next_word = None
+        for word, prob in candidates:
+            if word == START_TOKEN:
+                continue
+            if avoid_repetition and len(generated) >= 1 and word == generated[-1]:
+                continue
+            if avoid_repetition and len(generated) >= 3 and word in generated[-3:]:
+                # skip immediate cycle
+                continue
+            next_word = word
+            break
+
+        if next_word is None or next_word == END_TOKEN:
+            break
+
+        generated.append(next_word)
+
+        if stop_at_punct and next_word in {".", "!", "?"}:
+            break
+
+    return format_tokens_to_sentence(generated)
+
+
+def suggest_next_words(
+    model: NGramLanguageModel,
+    prompt: str,
+    top_k: int = 5,
+    k_smoothing: float | None = None,
+) -> list[tuple[str, float]]:
+    """Suggest top next-word candidates with probabilities for an educator."""
+    tokens = tokenize(prompt, lowercase=True, preserve_punctuation=False)
+    context = tuple(tokens[-(model.n - 1) :]) if tokens else ()
+    candidates = model.predict_next_words(
+        context, top_k=top_k, k=k_smoothing, filter_end_token=True
+    )
+    return candidates
+
+
+def milestone_3() -> dict[str, Any]:
+    """Milestone 3: Implement text generation to expand short inputs.
+
+    Uses the n-gram model to iteratively predict and append the most probable next words.
+    """
+    model = build_educational_model(n=3, k=1.0)
+    test_prompts = [
+        "Photosynthesis is",
+        "Cells divide by",
+        "Newton's first law of motion",
+        "An algorithm is",
+    ]
+
+    expansions = {}
+    for prompt in test_prompts:
+        expanded = expand_text(model, prompt, max_new_words=12)
+        suggestions = suggest_next_words(model, prompt, top_k=3)
+        expansions[prompt] = {
+            "expansion": expanded,
+            "next_word_suggestions": suggestions,
+        }
+
+    return {
+        "status": "completed",
+        "model_order": model.n,
+        "expansions": expansions,
+    }
 
 
 # --- Milestone 4: Develop a simple CLI for text input and expansion output.

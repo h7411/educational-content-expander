@@ -5,11 +5,15 @@ from app.core import (
     NGramLanguageModel,
     build_educational_model,
     clean_text,
+    expand_text,
+    format_tokens_to_sentence,
     get_vocabulary,
     load_corpus,
     milestone_1,
     milestone_2,
+    milestone_3,
     preprocess_corpus,
+    suggest_next_words,
     tokenize,
 )
 
@@ -64,9 +68,7 @@ def test_milestone_2():
     assert model.ngram_counts[("cell",)]["divides"] == 1
 
     # Check Add-k smoothing
-    # vocab: "the", "cell", "is", "basic", "unit", ".", "divides", "by", "mitosis", "</s>" -> 10 words
     v_size = model.vocab_size
-    # P("is" | "cell") = (count("cell", "is") + 1) / (count("cell") + 1 * v_size) = (1 + 1) / (2 + 10) = 2/12 = 1/6
     prob_is = model.probability("is", ("cell",), k=1.0)
     assert abs(prob_is - (2.0 / (2.0 + v_size))) < 1e-5
 
@@ -84,9 +86,31 @@ def test_milestone_2():
 
 
 # Milestone 3: Implement text generation to expand short inputs.
-@pytest.mark.skip(reason="remove this line when you start milestone 3")
 def test_milestone_3():
-    raise NotImplementedError("write the test for milestone 3")
+    result = milestone_3()
+    assert result["status"] == "completed"
+    assert result["model_order"] == 3
+    assert "Photosynthesis is" in result["expansions"]
+    assert "Cells divide by" in result["expansions"]
+
+    photo_expansion = result["expansions"]["Photosynthesis is"]["expansion"]
+    assert len(photo_expansion) > len("Photosynthesis is")
+    assert "photosynthesis is" in photo_expansion.lower()
+
+    # Test expand_text function
+    model = build_educational_model(n=3, k=1.0)
+    text = expand_text(model, "cells divide by", max_new_words=10)
+    assert "cells divide by" in text.lower()
+    assert text.endswith(".")
+
+    # Test formatting
+    formatted = format_tokens_to_sentence(["photosynthesis", "is", "a", "process", "."])
+    assert formatted == "Photosynthesis is a process."
+
+    # Test next word suggestions
+    suggestions = suggest_next_words(model, "photosynthesis is", top_k=3)
+    assert len(suggestions) == 3
+    assert all(isinstance(s[0], str) and isinstance(s[1], float) for s in suggestions)
 
 
 # Milestone 4: Develop a simple CLI for text input and expansion output.
