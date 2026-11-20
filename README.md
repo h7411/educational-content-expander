@@ -71,7 +71,7 @@ python -m app.cli hello
 ```
 
 ### 3. Run the Test Suite
-
+one of wun
 ```bash
 pytest -v
 ```
